@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Department, Organization
+from .models import User, Department, Organization, Document
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,3 +26,9 @@ class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = ['id', 'name']
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ['id', 'title', 'file', 'uploaded_by', 'adviser', 'department', 'uploaded_at']
+        read_only_fields = ['uploaded_by', 'uploaded_at']

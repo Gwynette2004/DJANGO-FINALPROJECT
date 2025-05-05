@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
-from .models import User, Organization, Department
+from .models import User, Organization, Department, Document
 from .serializers import UserSerializer, OrganizationSerializer, DepartmentSerializer
 from .permissions import IsAdmin
 from django.conf import settings
@@ -142,3 +142,39 @@ class CreateDepartmentView(APIView):
 
         department = Department.objects.create(name=name)
         return Response({"message": "Department created successfully!", "departmentId": department.id})
+
+class UploadDocumentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        title = data.get('title')
+        file = request.FILES.get('file')
+        adviser_id = data.get('adviser_id')
+        department_id = data.get('department_id')
+
+        if not title or not file or not adviser_id or not department_id:
+            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            adviser = User.objects.get(id=adviser_id, role='adviser')
+        except User.DoesNotExist:
+            return Response({"error": "Adviser not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            department = Department.objects.get(id=department_id)
+        except Department.DoesNotExist:
+            return Response({"error": "Department not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        document = Document.objects.create(
+            title=title,
+            file=file,
+            uploaded_by=request.user,
+            adviser=adviser,
+            department=department
+        )
+
+        # Notify the adviser, dean, and admin (logic can be added here)
+        # Example: Send an email or create a notification entry in the database
+
+        return Response({"message": "Document uploaded successfully!", "documentId": document.id}, status=status.HTTP_201_CREATED)

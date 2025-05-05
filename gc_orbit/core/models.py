@@ -2,6 +2,26 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.hashers import make_password
 
+
+class Document(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    title = models.CharField(max_length=255)
+    file = models.FileField(upload_to='documents/')
+    uploaded_by = models.ForeignKey('User', on_delete=models.CASCADE, related_name='uploaded_documents')  # Use string reference
+    adviser = models.ForeignKey('User', on_delete=models.CASCADE, related_name='adviser_documents')  # Use string reference
+    department = models.ForeignKey('Department', on_delete=models.CASCADE)  # Use string reference
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return self.title
+    def __str__(self):
+        return self.title
+    
 class Department(models.Model):
     name = models.CharField(max_length=255)
 
@@ -37,3 +57,4 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
