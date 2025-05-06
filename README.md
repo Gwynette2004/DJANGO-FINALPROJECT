@@ -1,130 +1,112 @@
-# GC-Orbit API Documentation
+GC-Orbit Backend API
+====================
 
-This is the backend API documentation for **GC-Orbit**, a document tracking system for student organizations, built with Django and Django REST Framework.
-
----
-🔐 Authentication
-
-### `POST /api/login/`
-Authenticate a user and return JWT tokens.
-
-- **Headers:**  
-  `Content-Type: application/json`
-
-- **Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-
-{
-  "refresh": "JWT_REFRESH_TOKEN",
-  "access": "JWT_ACCESS_TOKEN"
-}
-
-Create Organization
-Method: POST
-
-URL: /api/create-organization/
-
-Headers:
-
-Authorization: Bearer <access-token> (Admin only)
-
-Body:
-{
-  "name": "Org Name",
-  "email": "org@example.com",
-  "password": "password123",
-  "departmentId": 1
-}
-
-{
-  "message": "Organization created successfully!",
-  "organizationId": 5
-}
-
-Register User
-Method: POST
-
-URL: /api/register/
-
-Headers:
-
-Authorization: Bearer <access-token> (Admin only)
-
-Body:
+This project contains the core backend APIs for GC-Orbit, a document tracking and user management system designed for student organizations and administrative roles.
 
 
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "pass123",
-  "role": "dean",
-  "department": 1,
-  "organizationId": null
-}
+Authentication
+--------------
 
-{
-  "message": "dean registered successfully!",
-  "userId": 6
-}
+Uses JWT tokens (access & refresh) for user authentication. Tokens are returned upon successful login.
 
-Create Department
-Method: POST
+Rate Limiting
+-------------
 
-URL: /api/create-department/
+Endpoints like `upload-document/` and `view-documents/` are rate-limited to 5 requests per minute per user or IP.
 
-Headers:
+API Endpoints
+-------------
 
-Authorization: Bearer <access-token> (Admin only)
+1. **Login**
+   - `POST /login/`
+   - Request:
+     ```json
+     {
+       "email": "user@example.com",
+       "password": "yourpassword"
+     }
+     ```
+   - Response:
+     ```json
+     {
+       "refresh": "your-refresh-token",
+       "access": "your-access-token"
+     }
+     ```
 
-Body:
+2. **Create Organization** (Admin only)
+   - `POST /create-organization/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Request:
+     ```json
+     {
+       "name": "Org Name",
+       "email": "org@example.com",
+       "password": "securepassword",
+       "departmentId": 1
+     }
+     ```
 
-{
-  "name": "Computer Science"
-}
+3. **Register User** (Admin only)
+   - `POST /register/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Request:
+     ```json
+     {
+       "name": "John Doe",
+       "email": "john@example.com",
+       "password": "password123",
+       "role": "dean",
+       "department": 1,
+       "organizationId": 2
+     }
+     ```
 
-{
-  "message": "Department created successfully!",
-  "departmentId": 2
-}
+4. **User Profile**
+   - `GET /profile/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Response:
+     ```json
+     {
+       "id": 1,
+       "name": "Admin",
+       "email": "admin@example.com",
+       "role": "admin",
+       "department": null,
+       "organizationId": null
+     }
+     ```
 
-Upload Document
-Method: POST
+5. **Create Department** (Admin only)
+   - `POST /create-department/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Request:
+     ```json
+     {
+       "name": "Computer Science"
+     }
+     ```
 
-URL: /api/upload-document/
+6. **Upload Document** (Rate-limited)
+   - `POST /upload-document/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Form Data:
+     ```
+     title: Project Plan
+     file: <attach file>
+     adviser_id: 5
+     department_id: 2
+     ```
 
-Headers:
+7. **View Documents** (Rate-limited)
+   - `GET /view-documents/`
+   - Headers: `Authorization: Bearer <access_token>`
+   - Returns filtered documents based on user role.
 
-Authorization: Bearer <access-token>
+Getting Started
+---------------
 
-Content-Type: multipart/form-data
-
-Body (form-data):
-
-title: "Final Report"
-
-file: (Attach a file)
-
-adviser_id: 4
-
-department_id: 2
-
-
-{
-  "message": "Document uploaded successfully!",
-  "documentId": 9
-}
-
-Roles & Permissions
-admin: Can create departments, organizations, users
-organization: Can upload documents
-dean: Can approve/reject documents (future feature)
-adviser: Can comment on documents (future feature)
-
-Notes
-All protected routes require an Authorization header with a JWT:
-
-Authorization: Bearer <your-token>
+1. Clone the repository and install dependencies
+2. Configure your `.env` and `settings.py` (set `SECRET_KEY`, JWT settings, etc.)
+3. Run migrations
+4. Start your development server
