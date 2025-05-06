@@ -12,6 +12,7 @@ urlpatterns = [
     path('profile/', views.UserProfileView.as_view(), name='profile'),
     path('create-department/', views.CreateDepartmentView.as_view(), name='create-department'),
     path('upload-document/', views.UploadDocumentView.as_view(), name='upload-document'),
+      path('view-documents/', views.ViewDocumentsView.as_view(), name='view-documents'),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

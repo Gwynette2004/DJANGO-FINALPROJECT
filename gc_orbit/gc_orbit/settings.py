@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'core',  # Your custom app for the User, Department, and Organization models
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -50,7 +50,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # Ensure this is present
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -153,6 +153,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.User'
 
 AUTHENTICATION_BACKENDS = [
-    'core.backends.EmailBackend',  # 👈 use your app name here (you said it's "core")
+    'core.backends.EmailBackend',  
     'django.contrib.auth.backends.ModelBackend',  # fallback for admin login etc.
 ]
+
+RATELIMIT_KEY_FUNCTIONS = {
+    'user_or_ip': lambda r: str(r.user.pk) if hasattr(r, 'user') and r.user.is_authenticated else r.META.get('REMOTE_ADDR', ''),
+}

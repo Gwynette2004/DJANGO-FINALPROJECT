@@ -6,13 +6,14 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
 from .models import User, Organization, Department, Document
-from .serializers import UserSerializer, OrganizationSerializer, DepartmentSerializer
+from .serializers import UserSerializer, OrganizationSerializer, DepartmentSerializer, DocumentSerializer
 from .permissions import IsAdmin
 from django.conf import settings
 import bcrypt
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
+from django_ratelimit.decorators import ratelimit
 
 
 # JWT SECRET KEY (you should use a secret key from settings)
@@ -143,29 +144,56 @@ class CreateDepartmentView(APIView):
         department = Department.objects.create(name=name)
         return Response({"message": "Department created successfully!", "departmentId": department.id})
 
+
+from django_ratelimit.core import is_ratelimited
+
 class UploadDocumentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        print("Request user:", getattr(request, 'user', None))
+        print("Is authenticated:", getattr(request.user, 'is_authenticated', False))
+        print("Request META:", request.META.get('REMOTE_ADDR', 'No IP found'))
+
+        # Manually check rate limiting
+        ratelimited = is_ratelimited(
+            request=request,
+            group=None,
+            fn=self.post,
+            key='user_or_ip',
+            rate='5/m',
+            method='POST',
+            increment=True
+        )
+        print("Is ratelimited:", ratelimited)
+
+        if ratelimited:
+            return Response({"error": "Too many requests"}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        # Proceed with the rest of the logic
         data = request.data
         title = data.get('title')
         file = request.FILES.get('file')
         adviser_id = data.get('adviser_id')
         department_id = data.get('department_id')
 
+        # Validate required fields
         if not title or not file or not adviser_id or not department_id:
-            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "All fields (title, file, adviser_id, department_id) are required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate adviser existence
         try:
             adviser = User.objects.get(id=adviser_id, role='adviser')
         except User.DoesNotExist:
-            return Response({"error": "Adviser not found"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"Adviser with ID {adviser_id} does not exist or is not an adviser"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate department existence
         try:
             department = Department.objects.get(id=department_id)
         except Department.DoesNotExist:
-            return Response({"error": "Department not found"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"Department with ID {department_id} does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Create the document
         document = Document.objects.create(
             title=title,
             file=file,
@@ -174,7 +202,65 @@ class UploadDocumentView(APIView):
             department=department
         )
 
-        # Notify the adviser, dean, and admin (logic can be added here)
-        # Example: Send an email or create a notification entry in the database
-
         return Response({"message": "Document uploaded successfully!", "documentId": document.id}, status=status.HTTP_201_CREATED)
+
+    
+
+
+class ViewDocumentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        print("Request user:", getattr(request, 'user', None))
+        print("Is authenticated:", getattr(request.user, 'is_authenticated', False))
+        print("Request META:", request.META.get('REMOTE_ADDR', 'No IP found'))
+
+        # Manually check rate limiting
+        ratelimited = is_ratelimited(
+            request=request,
+            group=None,
+            fn=self.get,
+            key='user_or_ip',
+            rate='5/m', 
+            method='GET',
+            increment=True
+        )
+        print("Is ratelimited:", ratelimited)
+
+        if ratelimited:
+            return Response({"error": "Too many requests"}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        # Get the logged-in user's role
+        user = request.user
+        role = user.role
+
+        # Base queryset for documents
+        documents = Document.objects.all()
+
+        # Role-based filtering
+        if role == 'adviser':
+            # Advisers can only see documents assigned to them
+            documents = documents.filter(adviser=user)
+        elif role == 'dean':
+            # Deans can see all documents in their department
+            if user.department:
+                documents = documents.filter(department=user.department)
+            else:
+                return Response({"error": "Dean does not belong to any department"}, status=status.HTTP_400_BAD_REQUEST)
+        elif role == 'admin':
+            # Admins can see all documents (no filtering needed)
+            pass
+        elif role == 'organization':
+            # Organizations can only see documents they uploaded
+            documents = documents.filter(uploaded_by=user)
+        else:
+            # Other roles cannot view documents
+            return Response({"error": "You do not have permission to view documents"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Check if no documents are available
+        if not documents.exists():
+            print("No documents available for the current user.")  # Console log
+
+        # Serialize the filtered documents
+        serializer = DocumentSerializer(documents, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
